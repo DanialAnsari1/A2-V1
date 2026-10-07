@@ -197,12 +197,18 @@ class AdjacencyList(Graph):
         @returns: True if the connection existed and was updated;
                   False otherwise.
         """
-        # IMPLEMENT ME! (Task A.3 --- change weight)
-        # Update the firewalls on an existing connection in BOTH chains.
-        # Return True if it existed and was updated, False otherwise.
-        # HINT: changing a weight is not the same as adding a fresh
-        # connection --- find the existing entry rather than prepending.
-        return False
+        pu, pv = self._pos(u), self._pos(v)
+        if pu is None or pv is None or pu == pv or weight < 1:
+            return False
+        node_uv = self._find_node(pu, self._vertices[pv])
+        if node_uv is None:
+            return False
+        # Overwrite in place (no new entry) in both directions.
+        node_vu = self._find_node(pv, self._vertices[pu])
+        node_uv.weight = weight
+        if node_vu is not None:
+            node_vu.weight = weight
+        return True
 
     def get_vertices(self) -> list[Vertex]:
         """
