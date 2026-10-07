@@ -174,12 +174,17 @@ class AdjacencyList(Graph):
         @returns: True if the connection existed and was removed;
                   False otherwise.
         """
-        # IMPLEMENT ME! (Task A.2)
-        # Remove the connection from BOTH chains. Return True if it
-        # existed and was removed, False otherwise.
-        # HINT: _delete_node (which you implement above) unlinks one
-        # entry from one chain.
-        return False
+        pu, pv = self._pos(u), self._pos(v)
+        if pu is None or pv is None or pu == pv:
+            return False
+        # Unlink from u's chain first; if there was no entry, the
+        # connection does not exist and nothing has been changed.
+        if not self._delete_node(pu, self._vertices[pv]):
+            return False
+        # The graph is undirected, so v's chain must hold u as well.
+        self._delete_node(pv, self._vertices[pu])
+        self._num_edges -= 1
+        return True
 
     def update_edge_weight(self, u: Vertex, v: Vertex, weight: int) -> bool:
         """
