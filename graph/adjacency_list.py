@@ -272,11 +272,11 @@ class AdjacencyList(Graph):
                   exists or either vertex is unknown (matching the
                   matrix's behaviour).
         """
-        # IMPLEMENT ME! (Task A.4 --- get weight)
-        # Return the firewalls on the connection u--v, or 0 if there is
-        # none or either vertex is unknown (matching the matrix).
-        # HINT: _find_node searches one chain for a given neighbour.
-        return 0
+        pu, pv = self._pos(u), self._pos(v)
+        if pu is None or pv is None:
+            return 0
+        node = self._find_node(pu, self._vertices[pv])
+        return node.weight if node is not None else 0
 
     def num_vertices(self) -> int:
         """
