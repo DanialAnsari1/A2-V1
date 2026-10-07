@@ -104,12 +104,22 @@ class AdjacencyList(Graph):
         @returns: True if an entry was found and unlinked; False if
                   the chain holds no entry for that neighbour.
         """
-        # IMPLEMENT ME! (needed by remove_edge, Task A.2)
-        # Unlink the entry for `neighbour` from the chain at `slot`,
-        # re-joining the chain around it. Return True if you removed an
-        # entry, False if the chain had none for that neighbour.
-        # HINT: track the previous node so you can bypass the one you
-        # remove; the head (no previous node) is the case to watch.
+        prev: LinkedListNode | None = None
+        node = self._heads[slot]
+        while node is not None:
+            if node.neighbour == neighbour:
+                if prev is None:
+                    # Removing the head: the chain now starts at the
+                    # next entry (None if this was the only entry).
+                    self._heads[slot] = node.next
+                else:
+                    # Bypass the entry so the rest of the chain stays
+                    # linked (works for middle and last entries).
+                    prev.next = node.next
+                node.next = None
+                return True
+            prev = node
+            node = node.next
         return False
 
     def add_vertex(self, vertex: Vertex) -> bool:
