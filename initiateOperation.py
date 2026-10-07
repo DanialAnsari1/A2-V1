@@ -151,6 +151,64 @@ def run_experiment(base_config_path: str) -> None:
     print(f"  wrote {len(rows)} rows to {EXP_CSV}")
 
 
+def plot_experiment(out_path: str = "visuals/task_c_density.png") -> None:
+    """
+    Plots the Task C sweep from EXP_CSV: run-time against density for
+    the four combinations. Each point is the median over the networks
+    (seeds) of each network's minimum run; bars span the interquartile
+    range over the networks. Left: the full density range. Right: the sparse band
+    d <= 0.1, where the ranking changes.
+
+    @param out_path: Where to save the figure.
+    @returns: None
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from collections import defaultdict
+
+    data = defaultdict(list)
+    with open(EXP_CSV) as f:
+        for row in csv.DictReader(f):
+            if int(row["V"]) != EXP_NUM_NODES:
+                continue                        # check sweep: table only
+            key = (row["solver"], row["graph"])
+            data[key].append((float(row["density"]),
+                              float(row["min_s"]) * 1000))
+
+    style = {("kruskals", "list"):   ("#0072B2", "-",  "o", "Kruskal + list"),
+             ("kruskals", "matrix"): ("#0072B2", "--", "s", "Kruskal + matrix"),
+             ("prims", "list"):      ("#D55E00", "-",  "o", "Prim + list"),
+             ("prims", "matrix"):    ("#D55E00", "--", "s", "Prim + matrix")}
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
+    for ax, d_max in zip(axes, (1.0, 0.1)):
+        for key, (colour, ls, marker, label) in style.items():
+            by_d = defaultdict(list)
+            for d, ms in data[key]:
+                if d <= d_max + 1e-9:
+                    by_d[d].append(ms)
+            ds = sorted(by_d)
+            med = [statistics.median(by_d[d]) for d in ds]
+            q = [statistics.quantiles(by_d[d], n=4) for d in ds]
+            lo = [m - qq[0] for m, qq in zip(med, q)]
+            hi = [qq[2] - m for m, qq in zip(med, q)]
+            ax.errorbar(ds, med, yerr=[lo, hi], color=colour, ls=ls,
+                        marker=marker, ms=4, lw=1.4, capsize=2,
+                        label=label)
+        ax.set_xlabel("density d = |E| / (|V|(|V|-1)/2)")
+        ax.set_ylabel("run-time (ms)")
+        ax.grid(alpha=0.3)
+        ax.set_xlim(0, d_max * 1.02)
+        ax.set_ylim(bottom=0)
+    axes[0].set_title(f"(a) Full range, |V| = {EXP_NUM_NODES}")
+    axes[1].set_title("(b) Sparse band, d ≤ 0.1")
+    axes[0].legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=300)
+    print(f"  saved {out_path}")
+
+
 def main():
     """
     Entry point for the operation.
@@ -169,6 +227,10 @@ def main():
 
     if len(sys.argv) == 3 and sys.argv[1] == "--experiment":
         run_experiment(sys.argv[2])                 # Task C
+        plot_experiment()
+        return
+    if len(sys.argv) == 2 and sys.argv[1] == "--plot":
+        plot_experiment()                           # re-plot saved CSV
         return
 
     if len(sys.argv) != 2:
