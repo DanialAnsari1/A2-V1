@@ -149,13 +149,20 @@ class AdjacencyList(Graph):
                   u equals v, the weight is below 1, or the connection
                   already exists.
         """
-        # IMPLEMENT ME! (Task A.1)
-        # Add an undirected connection: update BOTH u's and v's chains.
-        # Return True on success; return False if a vertex is unknown,
-        # u == v, weight < 1, or the connection already exists.
-        # HINT: _pos gives a vertex's slot; _find_node checks whether a
-        # connection is already there.
-        return False
+        pu, pv = self._pos(u), self._pos(v)
+        if pu is None or pv is None or pu == pv or weight < 1:
+            return False
+        # Guard against storing the same connection twice.
+        if self._find_node(pu, v) is not None:
+            return False
+        # Prepend to both chains (O(1) each) so the graph stays
+        # undirected: u records v and v records u. Store the graph's
+        # own vertex objects (as the matrix does), not the caller's.
+        stored_u, stored_v = self._vertices[pu], self._vertices[pv]
+        self._heads[pu] = LinkedListNode(stored_v, weight, self._heads[pu])
+        self._heads[pv] = LinkedListNode(stored_u, weight, self._heads[pv])
+        self._num_edges += 1
+        return True
 
     def remove_edge(self, u: Vertex, v: Vertex) -> bool:
         """
