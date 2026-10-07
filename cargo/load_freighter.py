@@ -89,8 +89,7 @@ def load_weight_and_volume(bricks: list[Databrick],
 
     HINT: this is load_weight_only with one extra coordinate to track.
     """
-    # TODO (Task D.2): add the volume coordinate.
-    return [], {}
+    return _solve(bricks, (weight_capacity, volume_capacity))
 
 
 def _costs(brick: Databrick, dims: int) -> tuple[int, ...]:
