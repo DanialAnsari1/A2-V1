@@ -28,6 +28,128 @@ from utils.operation_utils import (
     run_visualiser,
 )
 
+# -------------------------------------------------------------------
+# Task C experiment (Danial Ansari, s4119075).
+# Run with:  python initiateOperation.py --experiment <base_config>.json
+# The base config supplies the fixed settings (firewall range etc.);
+# the values below override what the experiment varies or holds fixed.
+# -------------------------------------------------------------------
+import csv
+import gc
+import json
+import random
+import statistics
+
+EXP_NUM_NODES = 200                     # |V| held fixed
+EXP_DENSITIES = ([0.0]                                    # bare tree
+                 + [round(0.01 * k, 2) for k in range(2, 11)]   # sparse
+                 + [round(0.1 * k, 1) for k in range(2, 10)]    # middle
+                 + [0.95, 1.0])                                 # dense
+EXP_SEEDS = [11, 22, 33, 44, 55, 66, 77, 88]   # networks per density
+# Robustness check: does the ranking hold at a larger |V|?
+EXP_CHECK_NODES = 400
+EXP_CHECK_DENSITIES = [0.0, 0.02, 0.05, 0.1, 0.5, 0.9, 1.0]
+EXP_CHECK_SEEDS = EXP_SEEDS[:4]
+EXP_REPEATS = 15                        # interleaved timing rounds
+EXP_MAX_FIREWALLS = 100                 # held fixed for every run
+EXP_COMBOS = [("kruskals", "list"), ("kruskals", "matrix"),
+              ("prims", "list"), ("prims", "matrix")]
+EXP_CSV = "visuals/task_c_results.csv"
+
+
+def edges_for_density(num_nodes: int, d: float) -> int:
+    """
+    Converts a target density into a connection count, clamped to the
+    connected range [|V|-1, |V|(|V|-1)/2].
+
+    @param num_nodes: |V|.
+    @param d: Target density in [0, 1].
+    @returns: The number of connections |E|.
+    """
+    max_e = num_nodes * (num_nodes - 1) // 2
+    return max(num_nodes - 1, min(max_e, round(d * max_e)))
+
+
+def time_combos(runs: dict, rng: random.Random) -> dict:
+    """
+    Times several solver calls on the same network, interleaved: every
+    round runs each call once, in a freshly shuffled order, so a burst
+    of background load slows all of them alike instead of one whole
+    block. One untimed warm-up of each comes first; garbage collection
+    is paused while a call is timed. Only the solver call is timed (it
+    includes its own get_edges / get_neighbours calls), never the
+    construction of the graph.
+
+    @param runs: name -> zero-argument callable running one solver.
+    @param rng: Random source for the shuffles.
+    @returns: name -> (minimum, median) seconds over EXP_REPEATS rounds.
+              The minimum is the least-disturbed run, since background
+              noise can only ever add time.
+    """
+    for call in runs.values():
+        call()                                      # warm-up
+    times = {name: [] for name in runs}
+    names = list(runs)
+    for _ in range(EXP_REPEATS):
+        rng.shuffle(names)
+        for name in names:
+            gc.collect()
+            gc.disable()
+            t0 = start()
+            runs[name]()
+            times[name].append(stop(t0))
+            gc.enable()
+    return {n: (min(t), statistics.median(t)) for n, t in times.items()}
+
+
+def run_experiment(base_config_path: str) -> None:
+    """
+    Density sweep for Task C. For every density and seed, builds the
+    SAME network once as a list and once as a matrix (same seed, so the
+    same connections and firewalls), checks all four combinations find
+    the same MST total, times them interleaved, and writes one CSV row
+    per (density, seed, combination).
+
+    @param base_config_path: Path to a valid base configuration file.
+    @returns: None
+    """
+    from fold.the_fold import TheFold
+    from mst.prims import prims
+    from mst.kruskals import kruskals
+    solvers = {"prims": prims, "kruskals": kruskals}
+
+    with open(base_config_path) as f:
+        base = json.load(f)
+    order_rng = random.Random(2026)
+    rows = []
+    sweeps = [(EXP_NUM_NODES, d, EXP_SEEDS) for d in EXP_DENSITIES]
+    sweeps += [(EXP_CHECK_NODES, d, EXP_CHECK_SEEDS)
+               for d in EXP_CHECK_DENSITIES]
+    for v, d, seeds in sweeps:
+        e = edges_for_density(v, d)
+        actual_d = e / (v * (v - 1) / 2)
+        for seed in seeds:
+            cfg = dict(base, seed=seed, num_databricks=v - 3, num_edges=e,
+                       max_firewalls=EXP_MAX_FIREWALLS, run_loader=False,
+                       visualise=False, print_struct=False)
+            graphs = {gt: TheFold(dict(cfg, graph_type=gt)).get_graph()
+                      for gt in ("list", "matrix")}
+            totals = {solvers[s](graphs[g])[1] for s, g in EXP_COMBOS}
+            assert len(totals) == 1, "combinations disagree on MST total"
+            runs = {(s, g): (lambda s=s, g=g: solvers[s](graphs[g]))
+                    for s, g in EXP_COMBOS}
+            for (s, g), (t_min, t_med) in time_combos(runs, order_rng).items():
+                rows.append({"V": v, "E": e, "density": round(actual_d, 4),
+                             "seed": seed, "solver": s, "graph": g,
+                             "min_s": t_min, "median_s": t_med})
+        print(f"  |V|={v}  d={actual_d:.3f}  |E|={e:>6}  done")
+
+    with open(EXP_CSV, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"  wrote {len(rows)} rows to {EXP_CSV}")
+
 
 def main():
     """
@@ -44,6 +166,10 @@ def main():
     individual stages for your Task C experiments.
     """
     program_start = start()
+
+    if len(sys.argv) == 3 and sys.argv[1] == "--experiment":
+        run_experiment(sys.argv[2])                 # Task C
+        return
 
     if len(sys.argv) != 2:
         print("Usage: python initiateOperation.py <config_file>.json")
