@@ -35,8 +35,29 @@ def kruskals(graph: Graph) -> tuple[list[Edge], int]:
     HINT: get_edges gives every connection; sort them, then add a
     connection only when its endpoints are not already joined.
     """
-    # IMPLEMENT ME! (Task B)
-    # Return the chosen connections and their total firewalls. The empty
-    # return below is a valid placeholder so the program runs before you
-    # start: it finds no tree.
-    return [], 0
+    vertices = graph.get_vertices()
+    n = len(vertices)
+    if n <= 1:
+        return [], 0                      # nothing to connect
+
+    # Lines 1-2: every connection once, lightest first.
+    edges = merge_sort(graph.get_edges())
+
+    # Lines 3-4: every vertex starts in its own group (MAKE-SET).
+    groups = UnionFind(vertices)
+
+    # Line 5: the tree holds |V| - 1 connections when complete.
+    tree: list[Edge] = []
+    total = 0
+
+    # Lines 6-12: keep an edge only if it joins two different groups,
+    # i.e. it does not close a cycle.
+    for edge in edges:
+        if groups.find(edge.u) != groups.find(edge.v):
+            groups.union(edge.u, edge.v)
+            tree.append(edge)
+            total += edge.weight
+            if len(tree) == n - 1:
+                break                     # tree spans every vertex
+
+    return tree, total
