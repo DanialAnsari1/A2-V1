@@ -151,6 +151,59 @@ def run_experiment(base_config_path: str) -> None:
     print(f"  wrote {len(rows)} rows to {EXP_CSV}")
 
 
+def count_heap_work(base_config_path: str) -> None:
+    """
+    Explains Prim's measured curve: counts, for one network per density,
+    how many decrease-key calls Prim's makes, how many actually lower a
+    priority, and how many heap swaps those cause (vs log2|V|). Wraps
+    the provided MinHeap methods for this run only; nothing is timed.
+
+    @param base_config_path: Path to a valid base configuration file.
+    @returns: None
+    """
+    import math
+    import mst.min_heap as mh
+    from fold.the_fold import TheFold
+    from mst.prims import prims
+
+    stats = {"calls": 0, "lowered": 0, "swaps": 0, "inside": False}
+    orig_dk, orig_swap = mh.MinHeap.decrease_key, mh.MinHeap._swap
+
+    def counted_dk(self, key, priority, value):
+        stats["calls"] += 1
+        if priority < self._heap[self._pos[key]][0]:
+            stats["lowered"] += 1
+        stats["inside"] = True
+        orig_dk(self, key, priority, value)
+        stats["inside"] = False
+
+    def counted_swap(self, i, j):
+        if stats["inside"]:
+            stats["swaps"] += 1
+        orig_swap(self, i, j)
+
+    mh.MinHeap.decrease_key, mh.MinHeap._swap = counted_dk, counted_swap
+    with open(base_config_path) as f:
+        base = json.load(f)
+    try:
+        for v in (EXP_NUM_NODES, EXP_CHECK_NODES):
+            for d in (0.0, 0.1, 0.5, 1.0):
+                e = edges_for_density(v, d)
+                stats.update(calls=0, lowered=0, swaps=0)
+                cfg = dict(base, seed=EXP_SEEDS[0], num_databricks=v - 3,
+                           num_edges=e, max_firewalls=EXP_MAX_FIREWALLS,
+                           graph_type="list")
+                prims(TheFold(cfg).get_graph())
+                low = stats["lowered"]
+                print(f"  |V|={v} |E|={e:>6}: decrease-key calls "
+                      f"{stats['calls']:>6}, lowered {low:>5} "
+                      f"({100 * low / stats['calls']:4.1f}%), "
+                      f"{stats['swaps'] / max(1, low):.2f} swaps each "
+                      f"(log2|V| = {math.log2(v):.1f})")
+    finally:
+        mh.MinHeap.decrease_key, mh.MinHeap._swap = orig_dk, orig_swap
+
+
 def plot_experiment(out_path: str = "visuals/task_c_density.png") -> None:
     """
     Plots the Task C sweep from EXP_CSV: run-time against density for
@@ -228,6 +281,9 @@ def main():
     if len(sys.argv) == 3 and sys.argv[1] == "--experiment":
         run_experiment(sys.argv[2])                 # Task C
         plot_experiment()
+        return
+    if len(sys.argv) == 3 and sys.argv[1] == "--heap-stats":
+        count_heap_work(sys.argv[2])                # Task C evidence
         return
     if len(sys.argv) == 2 and sys.argv[1] == "--plot":
         plot_experiment()                           # re-plot saved CSV
