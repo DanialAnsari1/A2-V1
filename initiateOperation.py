@@ -234,7 +234,9 @@ def plot_experiment(out_path: str = "visuals/task_c_density.png") -> None:
              ("prims", "list"):      ("#D55E00", "-",  "o", "Prim + list"),
              ("prims", "matrix"):    ("#D55E00", "--", "s", "Prim + matrix")}
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
+    plt.rcParams.update({"font.size": 8, "axes.titlesize": 8.5,
+                         "legend.fontsize": 7.5})
+    fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.55))  # report width
     for ax, d_max in zip(axes, (1.0, 0.1)):
         for key, (colour, ls, marker, label) in style.items():
             by_d = defaultdict(list)
@@ -247,7 +249,7 @@ def plot_experiment(out_path: str = "visuals/task_c_density.png") -> None:
             lo = [m - qq[0] for m, qq in zip(med, q)]
             hi = [qq[2] - m for m, qq in zip(med, q)]
             ax.errorbar(ds, med, yerr=[lo, hi], color=colour, ls=ls,
-                        marker=marker, ms=4, lw=1.4, capsize=2,
+                        marker=marker, ms=3, lw=1.2, capsize=1.5,
                         label=label)
         ax.set_xlabel("density d = |E| / (|V|(|V|-1)/2)")
         ax.set_ylabel("run-time (ms)")
