@@ -2,7 +2,7 @@
 # EDIT THIS FILE TO IMPLEMENT TASK A.
 # Adjacency list implementation of the Graph ABC.
 #
-# __author__ = 'your_name_here'
+# __author__ = 'Danial Ansari (s4119075)'
 # __project__ = "Neuromancer: Hacking with Graphs"
 # __copyright__ = 'Copyright 2026, RMIT University'
 # -------------------------------------------------
