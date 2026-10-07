@@ -246,11 +246,16 @@ class AdjacencyList(Graph):
         @returns: A list of (neighbour, weight) tuples; empty if the
                   vertex is unknown.
         """
-        # IMPLEMENT ME! (Task A.5)
-        # Return a (neighbour, weight) tuple for every entry in this
-        # vertex's chain; an empty list if the vertex is unknown.
-        # HINT: walk the chain from its head, following .next to the end.
-        return []
+        p = self._pos(vertex)
+        if p is None:
+            return []
+        # Walk only this vertex's chain: O(deg(vertex)), not O(|V|).
+        result: list[tuple[Vertex, int]] = []
+        node = self._heads[p]
+        while node is not None:
+            result.append((node.neighbour, node.weight))
+            node = node.next
+        return result
 
     def has_edge(self, u: Vertex, v: Vertex) -> bool:
         """
